@@ -30,6 +30,11 @@ qx.Class.define('helenos.model.AbstractColumnQuery', {
             nullable : true
         },
         
+        columnsMode : {
+        	nullable : false,
+        	check : 'String'
+        },
+        
         limit : {
             init : 10,
             check : 'Integer'

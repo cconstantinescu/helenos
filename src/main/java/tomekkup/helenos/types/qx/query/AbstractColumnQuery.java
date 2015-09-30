@@ -20,6 +20,7 @@ public abstract class AbstractColumnQuery<K, N, V> extends AbstractQuery<K, N, V
     private String nameEnd;
     private int limit = DEFAULT_COLUMNS_LIMIT;
     private boolean reversed = false;
+	private ColumnsModeType columnsMode;
     
     public AbstractColumnQuery() {
         super();
@@ -77,4 +78,30 @@ public abstract class AbstractColumnQuery<K, N, V> extends AbstractQuery<K, N, V
     public void setReversed(boolean reversed) {
         this.reversed = reversed;
     }
+    
+    public ColumnsModeType getColumnsMode() {
+		return columnsMode;
+	}
+
+	public void setColumnsMode(String columnsMode) {
+		this.columnsMode = ColumnsModeType.fromName(columnsMode);
+	}
+	
+	public enum ColumnsModeType {
+		ALL("all"), RANGE("range"), NAME("name");
+		private String name;
+
+		ColumnsModeType(String name) {
+			this.name = name;
+		}
+
+		public static ColumnsModeType fromName(String name) {
+			for (ColumnsModeType type : values()) {
+				if (type.name.equals(name)) {
+					return type;
+				}
+			}
+			return null;
+		}
+	}
 }

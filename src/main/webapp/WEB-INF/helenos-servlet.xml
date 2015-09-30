@@ -12,7 +12,7 @@
     </bean>
     
     <bean name="/query/Standard.json" class="com.googlecode.jsonrpc4j.spring.JsonServiceExporter">
-        <property name="service" ref="standardQueryProvider"/>
+        <property name="service" ref="datastaxQueryProvider"/>
         <property name="serviceInterface" value="tomekkup.helenos.service.query.StandardQueryProvider"/>
     </bean>
     
@@ -27,7 +27,7 @@
     </bean>
     
     <bean name="/SchemaInfo.json" class="com.googlecode.jsonrpc4j.spring.JsonServiceExporter">
-        <property name="service" ref="schemaProvider"/>
+        <property name="service" ref="datastaxSchemaProvider"/>
         <property name="serviceInterface" value="tomekkup.helenos.service.SchemaProvider"/>
     </bean>
     

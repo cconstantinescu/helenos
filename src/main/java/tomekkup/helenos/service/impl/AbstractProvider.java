@@ -1,19 +1,34 @@
 package tomekkup.helenos.service.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.commons.lang.StringUtils;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.dozer.Mapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Required;
+import org.springframework.util.Assert;
+
+import com.datastax.driver.core.Cluster.Builder;
+import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.Row;
+import com.datastax.driver.core.Session;
+
 import me.prettyprint.cassandra.serializers.ObjectSerializer;
 import me.prettyprint.cassandra.serializers.SerializerTypeInferer;
+import me.prettyprint.cassandra.service.CassandraHost;
 import me.prettyprint.hector.api.Cluster;
 import me.prettyprint.hector.api.ConsistencyLevelPolicy;
 import me.prettyprint.hector.api.HConsistencyLevel;
 import me.prettyprint.hector.api.Keyspace;
 import me.prettyprint.hector.api.Serializer;
 import me.prettyprint.hector.api.factory.HFactory;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.dozer.Mapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Required;
-import org.springframework.util.Assert;
 import tomekkup.helenos.cassandra.model.AllConsistencyLevelPolicy;
+import tomekkup.helenos.types.Column;
+import tomekkup.helenos.types.Column.ColumnKeyType;
 import tomekkup.helenos.types.qx.query.Query;
 
 /**
@@ -36,6 +51,8 @@ public abstract class AbstractProvider {
     protected ConsistencyLevelPolicy consistencyLevelPolicy;
     
     protected Cluster cluster;
+
+	private com.datastax.driver.core.Cluster clusterDatastax;
     
     protected <V> Serializer<V> getSerializer(Class<V> clazz) {
         Serializer<V> serializer = SerializerTypeInferer.getSerializer(clazz);
@@ -93,13 +110,56 @@ public abstract class AbstractProvider {
     public void setConsistencyLevelPolicy(ConsistencyLevelPolicy consistencyLevelPolicy) {
         this.consistencyLevelPolicy = consistencyLevelPolicy;
     }
-    
     public final void setNewCluster(Cluster cluster) {
-        this.cluster = cluster;
-    }
+		this.cluster = cluster;
+		Set<CassandraHost> hosts = this.cluster.getConnectionManager().getHosts();
+		String[] hostsStr = new String[hosts.size()];
+		int i = 0;
+		for (CassandraHost host : hosts) {
+			hostsStr[i++] = host.getHost();
+		}
+		Map<String, String> credentials = cluster.getCredentials();
+		String password = credentials.get("password");
+		String username = credentials.get("username");
+		Builder builder = com.datastax.driver.core.Cluster.builder().addContactPoints(hostsStr);
+		if (StringUtils.isNotBlank(username)) {
+			builder.withCredentials(username, password);
+		}
+		clusterDatastax = builder.build();
+		
+	}
 
-    @Required
-    public void setObjectMapper(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
+	@Required
+	public void setObjectMapper(ObjectMapper objectMapper) {
+		this.objectMapper = objectMapper;
+	}
+
+	public Session getNewCQLSession() {
+		Session session = clusterDatastax.connect();
+		return session;
+	}
+	
+	protected List<Column<String, Object>> getColumnsByType(String keyspace, String columnFamily,
+			ColumnKeyType requiredType, Session session) {
+		// fetches the column metadata for the columnfamily selected, to find
+		// out the keys
+		ResultSet resultColumnsDefinition = session
+				.execute("SELECT * from system.schema_columns where keyspace_name = '" + keyspace
+						+ "' and columnfamily_name='" + columnFamily + "'");
+		List<Column<String, Object>> columns = new ArrayList<Column<String, Object>>();
+		// creates a list of partition keys first, then clustering keys
+		for (Row row : resultColumnsDefinition) {
+			Column<String, Object> column = new Column<String, Object>();
+			ColumnKeyType type = ColumnKeyType.fromName(row.getString("type"));
+			if (requiredType == null || type == requiredType) {
+				column.setType(type);
+				column.setName(row.getString("column_name"));
+				columns.add(column);
+			}
+		}
+		if (requiredType == ColumnKeyType.PARTITION_KEY && columns.isEmpty()) {
+			throw new IllegalArgumentException("The column family " + columnFamily + " doesn't have a partition key.");
+		}
+		return columns;
+	}
 }

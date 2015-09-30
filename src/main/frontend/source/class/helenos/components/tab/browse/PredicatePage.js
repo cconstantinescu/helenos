@@ -14,7 +14,7 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
     {
         this.base(arguments, ksName, cfName);
         this.__applyKeyModePredicate();
-        this.__applyColModeRange();
+        this.__applyColModeAll();
         this.__disableNextBtn();
     },
     
@@ -22,6 +22,7 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
         PREDICATE : 'predicate',
         NAME : 'name',
         RANGE : 'range',
+        ALL : 'all',
         KEY_RANGE : 'key range'
     },
     
@@ -45,6 +46,7 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
         __keysPredicateCP : null,
         __keysRangeCP : null,
         __rangeColNamesCP : null,
+        __rangeColAllCP: null,
         __rangeFromToCP : null,
         __reversedCB : null,
         __colsLimitTF : null,
@@ -85,13 +87,13 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
             } else {
                 this._queryObj.setKey(this.__keyTF.getValue());
             }
-            
+            this._queryObj.setColumnsMode(this.__colMode);
             if (this.__colMode == this.self(arguments).RANGE) {
                 this._queryObj.setNameStart(this.__nameStartTF.getValue());
                 this._queryObj.setNameEnd(this.__nameEndTF.getValue());
                 this._queryObj.setReversed(this.__reversedCB.getValue());
                 this._queryObj.setLimit(this.__colsLimitTF.getValue());
-            } else {
+            } else if(this.__colMode == this.self(arguments).NAME) {
                 this._queryObj.setColumnNames(this.__columnNamesTF.getValue().split(','));
             }
             
@@ -251,6 +253,7 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
             
             columnsGB.add(this.__buildRangeFromToBox());
             columnsGB.add(this.__buildRangeColNamesBox());
+            columnsGB.add(this.__buildRangeColAllBox());
             
             if (this._cfDef.columnType == 'Super') {
                 this.__sNameTF = new helenos.ui.TextField(this._cfDef.comparatorType.className);
@@ -314,13 +317,15 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
         __buildRangeModeBG : function() {
             var byNameBT = new qx.ui.form.RadioButton(this.self(arguments).NAME);
             var byRangeBT = new qx.ui.form.RadioButton(this.self(arguments).RANGE);
+            var byAllBT = new qx.ui.form.RadioButton(this.self(arguments).ALL);
             
             this.__columnsByRBG = new qx.ui.form.RadioButtonGroup(new qx.ui.layout.HBox(8));
             this._addToResetter(this.__columnsByRBG);
             this._addToDisabler(this.__columnsByRBG);
+            this.__columnsByRBG.add(byAllBT);
             this.__columnsByRBG.add(byNameBT);
             this.__columnsByRBG.add(byRangeBT);
-            this.__columnsByRBG.setSelection([byRangeBT]);
+            this.__columnsByRBG.setSelection([byAllBT]);
             this.__columnsByRBG.addListener('changeSelection', this.__onRangeModeToggled, this);
             return this.__columnsByRBG;
         },
@@ -375,12 +380,18 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
             
             return this.__rangeColNamesCP;
         },
-        
+        __buildRangeColAllBox : function() {
+            this.__rangeColAllCP = new qx.ui.container.Composite(new qx.ui.layout.VBox(5)).set({padding : 0});
+            
+            return this.__rangeColAllCP;
+        },
         __onRangeModeToggled : function(e) {
             if (e.getData()[0].getLabel() == this.self(arguments).NAME) {
                 this.__applyColModeColNames();
-            } else {
+            } else if (e.getData()[0].getLabel() == this.self(arguments).RANGE) {
                 this.__applyColModeRange();
+            }else{
+            	this.__applyColModeAll();
             }
         },
         
@@ -417,6 +428,7 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
             
             this.__rangeFromToCP.exclude();
             this.__rangeColNamesCP.show();
+            this.__rangeColAllCP.exclude();
             
             this._setValidateAttr(this.__columnNamesTF, true);
             this._setValidateAttr(this.__colsLimitTF, false);
@@ -427,9 +439,21 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
  
             this.__rangeFromToCP.show();
             this.__rangeColNamesCP.exclude();
+            this.__rangeColAllCP.exclude();
             
             this._setValidateAttr(this.__columnNamesTF, false);
             this._setValidateAttr(this.__colsLimitTF, true);
+        },
+        
+        __applyColModeAll : function() {
+            this.__colMode = this.self(arguments).ALL;
+ 
+            this.__rangeFromToCP.exclude();
+            this.__rangeColNamesCP.exclude();
+            this.__rangeColAllCP.show();
+            
+            this._setValidateAttr(this.__columnNamesTF, false);
+            this._setValidateAttr(this.__colsLimitTF, false);
         }
     }
 });

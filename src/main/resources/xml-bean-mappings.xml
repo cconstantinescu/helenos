@@ -18,7 +18,7 @@
     </configuration>
 
     <mapping type="one-way">
-        <class-a>me.prettyprint.cassandra.service.ThriftKsDef</class-a>
+        <class-a>me.prettyprint.hector.api.ddl.KeyspaceDefinition</class-a>
         <class-b>tomekkup.helenos.types.JsonKeyspaceDefinition</class-b>
         <field>
             <a>name</a>
@@ -62,7 +62,7 @@
     -->
             
     <mapping type="one-way">
-        <class-a>me.prettyprint.cassandra.service.ThriftCfDef</class-a>
+        <class-a>me.prettyprint.hector.api.ddl.ColumnFamilyDefinition</class-a>
         <class-b>tomekkup.helenos.types.JsonColumnFamilyDefinition</class-b>
         <field>
             <a>name</a>
