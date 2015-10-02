@@ -23,7 +23,9 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
         NAME : 'name',
         RANGE : 'range',
         ALL : 'all',
-        KEY_RANGE : 'key range'
+        KEY_RANGE : 'key range',
+        PARTITION_KEY: 'PARTITION_KEY',
+        CLUSTERING_KEY: 'CLUSTERING_KEY'
     },
     
     members :
@@ -33,8 +35,9 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
         
         __keyMode : null,
         __keyTF : null,
-        __keyFromTF : null,
-        __keyToTF : null,
+        __keyFromTFList: null,
+        __keyToTFList: null,
+        __clusteringKeys: null,
         __rowCountTF : null,
         
         __colMode : null,
@@ -42,6 +45,7 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
         __nameEndTF : null,
         __sNameTF : null,
         __columnNamesTF : null,
+        __tabView : null,
         
         __keysPredicateCP : null,
         __keysRangeCP : null,
@@ -81,9 +85,13 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
             }
             this._queryObj.prepareQuery(this._cfDef, consistencyLevel);
             if (this.__keyMode == this.self(arguments).KEY_RANGE) {
-                this._queryObj.setKeyFrom(this.__keyFromTF.getValue());
-                this._queryObj.setKeyTo(this.__keyToTF.getValue());
+            	var page = this.__tabView.getSelection()[0];
+            	var selectedIndex = this.__tabView.indexOf(page);
+            	this._queryObj.setKeyClass(this._queryObj._findParamClass(this.__clusteringKeys[selectedIndex].validationClass));
+                this._queryObj.setKeyFrom(this.__keyFromTFList[selectedIndex].getValue());
+                this._queryObj.setKeyTo(this.__keyToTFList[selectedIndex].getValue());
                 this._queryObj.setRowCount(this.__rowCountTF.getValue());
+                this._queryObj.setSelectedKeyColumn(this.__clusteringKeys[selectedIndex].name);
             } else {
                 this._queryObj.setKey(this.__keyTF.getValue());
             }
@@ -104,13 +112,23 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
             } else  {
                 result = helenos.util.RpcActionsProvider.queryKeyRange(this._cfDef, jsonQuery);
             }
-            
+            if( result.length == 0){
+            	(new dialog.Alert({
+                    "message" : 'No results found.',
+                    'image' : 'icon/48/status/dialog-information.png'
+                })).set({width : 350}).show();
+            }
             this._collectPaginationData(result);
             return result;
         },
         
         _collectPaginationData : function(result) {
+        	if(result == null || result.length == 0 ){
+        		this.__disableNextBtn();
+        		return;
+        	}
             if (this.__keyMode == this.self(arguments).KEY_RANGE) {
+            	// TODO check if 'next page' button should be supported
                 this.__firstID = result[0].key;
                 this.__lastID = result[result.length-1].key;
                 if (result.length < this._queryObj.getRowCount()) {
@@ -120,7 +138,13 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
                 }
             } else  {
                 if (this.__colMode == this.self(arguments).RANGE) {
-                    var columnsRange = result[0].columns;
+                	while(result.length > 0){
+                		result = result[0];
+                	}
+                	while(result.slices.length > 0){
+                		result = result.slices[0];
+                	}
+                    var columnsRange = result.columns;
                     this.__firstID = columnsRange[0].name;
                     this.__lastID = columnsRange[columnsRange.length-1].name;
                     if (columnsRange.length < this._queryObj.getLimit()) {
@@ -150,6 +174,7 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
         },
         
         __onNextRange : function(e) {
+        	// TODO implement multiple keys on next (if supported)
             if (!this.__validateNextMode()) {
                 return;
             }
@@ -237,14 +262,9 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
 
         __buildColumnsGB : function() {
             var columnsGB = new helenos.ui.GroupBoxV('Columns');
+            this.__nameStartTF = new helenos.ui.TextField('org.apache.cassandra.db.marshal.UTF8Type');
+            this.__nameEndTF = new helenos.ui.TextField('org.apache.cassandra.db.marshal.UTF8Type');
             
-            if (this.__isSuperColumnMode() == true) {
-                this.__nameStartTF = new helenos.ui.TextField(this._cfDef.subComparatorType.className);
-                this.__nameEndTF = new helenos.ui.TextField(this._cfDef.subComparatorType.className);
-            } else {
-                this.__nameStartTF = new helenos.ui.TextField(this._cfDef.comparatorType.className);
-                this.__nameEndTF = new helenos.ui.TextField(this._cfDef.comparatorType.className);
-            }
             this._addToResetter(this.__nameStartTF);
             this._addToDisabler(this.__nameStartTF);
             
@@ -279,6 +299,14 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
         },
         
          __buildKeysPredicateBox : function(){
+        	 var _partitionKeys = [];
+			 for(var i = 0; i < this._cfDef.columnMetadata.length; i++){
+				 if( this._cfDef.columnMetadata[i].keyType == this.self(arguments).PARTITION_KEY){
+					 _partitionKeys.push(this._cfDef.columnMetadata[i]);
+					 //currently only one partition key is supported
+					 break;
+				 }
+			 }
            this.__keysPredicateCP = new qx.ui.container.Composite(new qx.ui.layout.VBox(5)).set({padding : 0});
            this.__keyTF = new helenos.ui.TextField(this._cfDef.keyValidationClass).set({required : true});
 
@@ -286,29 +314,47 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
            this._addToValidator(this.__keyTF);
            this._addToDisabler(this.__keyTF);
 
-           this.__keysPredicateCP.add(new qx.ui.basic.Label('Key:'));
+           this.__keysPredicateCP.add(new qx.ui.basic.Label('Key ('+ _partitionKeys[0].name +'):'));
            this.__keysPredicateCP.add(this.__keyTF);
            
            return this.__keysPredicateCP;
          },
          
          __buildKeysRangeBox : function() {
-           this.__keyFromTF = new helenos.ui.TextField(this._cfDef.keyValidationClass);
-           this.__keyToTF = new helenos.ui.TextField(this._cfDef.keyValidationClass);
+			 this.__clusteringKeys = [];
+			 for(var i = 0; i < this._cfDef.columnMetadata.length; i++){
+				 if( this._cfDef.columnMetadata[i].keyType == this.self(arguments).CLUSTERING_KEY){
+					 this.__clusteringKeys.push(this._cfDef.columnMetadata[i]);
+				 }
+			 }
+			 this.__keyFromTFList = [];
+			 this.__keyToTFList = []
+			 for(var i = 0; i < this.__clusteringKeys.length; i++){
+				 this.__keyFromTFList.push( new helenos.ui.TextField(this.__clusteringKeys[i].validationClass));
+				 this.__keyToTFList.push( new helenos.ui.TextField(this.__clusteringKeys[i].validationClass));
+				 this._addToResetter(this.__keyFromTFList[i]);
+		         this._addToDisabler(this.__keyFromTFList[i]);
+		         this._addToResetter(this.__keyToTFList[i]);
+		         this._addToDisabler(this.__keyToTFList[i]);
+			 }
            this.__rowCountTF = new qx.ui.form.TextField().set({filter : /[0-9]/, value : '10', required : true});
-           this._addToResetter(this.__keyFromTF);
-           this._addToDisabler(this.__keyFromTF);
-           this._addToResetter(this.__keyToTF);
-           this._addToDisabler(this.__keyToTF);
            this._addToResetter(this.__rowCountTF);
            this._addToDisabler(this.__rowCountTF);
            this._addToValidator(this.__rowCountTF);
            
            this.__keysRangeCP = new qx.ui.container.Composite(new qx.ui.layout.VBox(5)).set({padding : 0});
-           this.__keysRangeCP.add(new qx.ui.basic.Label('From:'));
-           this.__keysRangeCP.add(this.__keyFromTF);
-           this.__keysRangeCP.add(new qx.ui.basic.Label('To:'));
-           this.__keysRangeCP.add(this.__keyToTF);
+           
+           this.__tabView = new qx.ui.tabview.TabView();
+           this.__keysRangeCP.add(this.__tabView);
+           for(var i = 0; i < this.__clusteringKeys.length; i++){
+        	   var page = new qx.ui.tabview.Page(this.__clusteringKeys[i].name);
+        	   page.setLayout(new qx.ui.layout.VBox());
+        	   page.add(new qx.ui.basic.Label('From:'));
+        	   page.add(this.__keyFromTFList[i]);
+        	   page.add(new qx.ui.basic.Label('To:'));
+        	   page.add(this.__keyToTFList[i]);
+        	   this.__tabView.add(page);
+           }	
            this.__keysRangeCP.add(new qx.ui.basic.Label('Max keys:'));
            this.__keysRangeCP.add(this.__rowCountTF);
            return this.__keysRangeCP;
@@ -338,7 +384,9 @@ qx.Class.define("helenos.components.tab.browse.PredicatePage",
             this._addToResetter(this.__keyModeRBG);
             this._addToDisabler(this.__keyModeRBG);
             this.__keyModeRBG.add(predicateBT);
-            this.__keyModeRBG.add(keyRangeBT);
+            if( this.__clusteringKeys.length > 0){
+            	this.__keyModeRBG.add(keyRangeBT);
+            }
             this.__keyModeRBG.setSelection([predicateBT]);
             this.__keyModeRBG.addListener('changeSelection', this.__onKeyModeToggled, this);
             return this.__keyModeRBG;

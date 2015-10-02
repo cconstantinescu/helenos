@@ -169,29 +169,21 @@ public class DatastaxQueryProviderImpl extends AbstractQueryProvider
 		logQueryObject(query);
 		Session session = getNewCQLSession();
 		try {
-			List<Column<String, Object>> keyColumns = getColumnsByType(query.getKeyspace(), query.getColumnFamily(),
-					ColumnKeyType.CLUSTERING_KEY, session);
-			if (keyColumns.size() != 1) {
-				throw new IllegalArgumentException("None or more than one range column was found.");
-			}
 			StringBuilder sb = new StringBuilder();
 
 			sb.append("SELECT ");
 			handleColumns(sb, query, session);
 			sb.append(" FROM ").append(query.getKeyspace()).append(".").append(query.getColumnFamily());
 			List<Object> binds = new ArrayList<Object>();
-			for (Column<String, Object> keyColumn : keyColumns) {
-				if (query.getKeyFrom() != null) {
-					addClause(binds,sb);
-					sb.append("\"").append(keyColumn.getName()).append("\" >= ? ");
-					binds.add(query.getKeyFrom());
-				}
-				if (query.getKeyTo() != null && StringUtils.isNotBlank(query.getKeyTo().toString())) {
-					addClause(binds,sb);
-					
-					sb.append("\"").append(keyColumn.getName()).append("\" <= ? ");
-					binds.add(query.getKeyTo());
-				}
+			if (query.getKeyFrom() != null) {
+				addClause(binds, sb);
+				sb.append("\"").append(query.getSelectedKeyColumn()).append("\" >= ? ");
+				binds.add(query.getKeyFrom());
+			}
+			if (query.getKeyTo() != null ) {
+				addClause(binds, sb);
+				sb.append("\"").append(query.getSelectedKeyColumn()).append("\" <= ? ");
+				binds.add(query.getKeyTo());
 			}
 			sb.append(" LIMIT ").append(query.getRowCount());
 			sb.append(" ALLOW FILTERING ");
@@ -204,8 +196,7 @@ public class DatastaxQueryProviderImpl extends AbstractQueryProvider
 	private void addClause(List<Object> binds, StringBuilder sb) {
 		if (binds.size() > 0) {
 			sb.append(" AND ");
-		}
-		else{
+		} else {
 			sb.append(" WHERE ");
 		}
 	}

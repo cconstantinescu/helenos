@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.cassandra.db.marshal.ReversedType;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.stereotype.Component;
 
@@ -18,11 +19,17 @@ import me.prettyprint.cassandra.model.BasicColumnFamilyDefinition;
 import me.prettyprint.cassandra.model.BasicKeyspaceDefinition;
 import me.prettyprint.hector.api.ddl.ColumnDefinition;
 import me.prettyprint.hector.api.ddl.ColumnFamilyDefinition;
+import me.prettyprint.hector.api.ddl.ColumnIndexType;
 import me.prettyprint.hector.api.ddl.ColumnType;
 import me.prettyprint.hector.api.ddl.ComparatorType;
 import me.prettyprint.hector.api.ddl.KeyspaceDefinition;
 import tomekkup.helenos.service.ClusterConfigAware;
 import tomekkup.helenos.service.SchemaProvider;
+import tomekkup.helenos.types.Column;
+import tomekkup.helenos.types.Column.ColumnKeyType;
+import tomekkup.helenos.types.DatastaxColumnDefinition;
+import tomekkup.helenos.types.DatastaxColumnFamilyDefinition;
+import tomekkup.helenos.types.DatastaxKeyspaceDefinition;
 import tomekkup.helenos.types.JsonColumnFamilyDefinition;
 import tomekkup.helenos.types.JsonKeyspaceDefinition;
 
@@ -38,9 +45,9 @@ public class DatastaxSchemaProviderImpl extends AbstractProvider implements Sche
 
 	@Override
 	public List<JsonKeyspaceDefinition> describeKeyspaces() {
-		List<KeyspaceDefinition> definitions = describeKeyspacesCQL();
+		List<DatastaxKeyspaceDefinition> definitions = describeKeyspacesCQL();
 		ArrayList<JsonKeyspaceDefinition> y = new ArrayList<JsonKeyspaceDefinition>();
-		for (KeyspaceDefinition kd : definitions) {
+		for (DatastaxKeyspaceDefinition kd : definitions) {
 			y.add(mapper.map(kd, JsonKeyspaceDefinition.class));
 		}
 		return y;
@@ -48,7 +55,7 @@ public class DatastaxSchemaProviderImpl extends AbstractProvider implements Sche
 
 	@Override
 	public JsonKeyspaceDefinition describeKeyspace(String keyspaceName) {
-		List<KeyspaceDefinition> definitions = describeKeyspaceCQL(keyspaceName);
+		List<DatastaxKeyspaceDefinition> definitions = describeKeyspaceCQL(keyspaceName);
 		if (definitions.size() != 1) {
 			return null;
 		}
@@ -59,7 +66,8 @@ public class DatastaxSchemaProviderImpl extends AbstractProvider implements Sche
 	public JsonColumnFamilyDefinition describeColumnFamily(String keyspaceName, String columnFamilyName) {
 		Session session = getNewCQLSession();
 		try {
-			List<ColumnFamilyDefinition> columns = describeColumnFamilyCQL(keyspaceName, columnFamilyName, session);
+			List<DatastaxColumnFamilyDefinition> columns = describeColumnFamilyCQL(keyspaceName, columnFamilyName,
+					session);
 			if (columns.size() != 1) {
 				return null;
 			}
@@ -69,11 +77,11 @@ public class DatastaxSchemaProviderImpl extends AbstractProvider implements Sche
 		}
 	}
 
-	private List<KeyspaceDefinition> describeKeyspacesCQL() {
+	private List<DatastaxKeyspaceDefinition> describeKeyspacesCQL() {
 		return describeKeyspaceCQL(null);
 	}
 
-	private List<KeyspaceDefinition> describeKeyspaceCQL(String keyspaceName) {
+	private List<DatastaxKeyspaceDefinition> describeKeyspaceCQL(String keyspaceName) {
 
 		Session session = getNewCQLSession();
 		try {
@@ -82,9 +90,9 @@ public class DatastaxSchemaProviderImpl extends AbstractProvider implements Sche
 				cql += " where keyspace_name = '" + keyspaceName + "'";
 			}
 			ResultSet result = session.execute(cql);
-			List<KeyspaceDefinition> definitions = new ArrayList<KeyspaceDefinition>();
+			List<DatastaxKeyspaceDefinition> definitions = new ArrayList<DatastaxKeyspaceDefinition>();
 			for (Row keyspaceRow : result) {
-				BasicKeyspaceDefinition def = new BasicKeyspaceDefinition();
+				DatastaxKeyspaceDefinition def = new DatastaxKeyspaceDefinition();
 				def.setDurableWrites(keyspaceRow.getBool("durable_writes"));
 				def.setName(keyspaceRow.getString("keyspace_name"));
 				def.setStrategyClass(keyspaceRow.getString("strategy_class"));
@@ -96,9 +104,9 @@ public class DatastaxSchemaProviderImpl extends AbstractProvider implements Sche
 				if (map.containsKey("replication_factor")) {
 					def.setReplicationFactor(Integer.parseInt(map.get("replication_factor").toString()));
 				}
-				List<ColumnFamilyDefinition> columnFamilyDefinitions = describeColumnFamiliesCQL(def.getName(),
+				List<DatastaxColumnFamilyDefinition> columnFamilyDefinitions = describeColumnFamiliesCQL(def.getName(),
 						session);
-				for (ColumnFamilyDefinition column : columnFamilyDefinitions) {
+				for (DatastaxColumnFamilyDefinition column : columnFamilyDefinitions) {
 					def.addColumnFamily(column);
 				}
 				definitions.add(def);
@@ -109,20 +117,20 @@ public class DatastaxSchemaProviderImpl extends AbstractProvider implements Sche
 		}
 	}
 
-	private List<ColumnFamilyDefinition> describeColumnFamiliesCQL(String keyspaceName, Session session) {
+	private List<DatastaxColumnFamilyDefinition> describeColumnFamiliesCQL(String keyspaceName, Session session) {
 		return describeColumnFamilyCQL(keyspaceName, null, session);
 	}
 
-	private List<ColumnFamilyDefinition> describeColumnFamilyCQL(String keyspaceName, String columnFamily,
+	private List<DatastaxColumnFamilyDefinition> describeColumnFamilyCQL(String keyspaceName, String columnFamily,
 			Session session) {
-		List<ColumnFamilyDefinition> columnFamilyDefinitions = new ArrayList<ColumnFamilyDefinition>();
+		List<DatastaxColumnFamilyDefinition> columnFamilyDefinitions = new ArrayList<DatastaxColumnFamilyDefinition>();
 		String cql = "SELECT * from system.schema_columnfamilies  where keyspace_name = '" + keyspaceName + "'";
 		if (StringUtils.isNotBlank(columnFamily)) {
 			cql += " and columnfamily_name = '" + columnFamily + "'";
 		}
 		ResultSet result = session.execute(cql);
 		for (Row columnFamilityRow : result) {
-			ColumnFamilyDefinition columnFamilyDefinition = new BasicColumnFamilyDefinition();
+			DatastaxColumnFamilyDefinition columnFamilyDefinition = new DatastaxColumnFamilyDefinition();
 			columnFamilyDefinition.setName(columnFamilityRow.getString("columnfamily_name"));
 			ResultSet resultColumnsDefinition = session
 					.execute("SELECT * from system.schema_columns where keyspace_name = '" + keyspaceName
@@ -173,12 +181,18 @@ public class DatastaxSchemaProviderImpl extends AbstractProvider implements Sche
 		return columnFamilyDefinitions;
 	}
 
-	private ColumnDefinition convertColumnDefinition(Row columnDefinitionRow) {
-		BasicColumnDefinition newColumnDefinition = new BasicColumnDefinition();
-		newColumnDefinition.setIndexName(columnDefinitionRow.getString("index_name"));
-		// newColumnDefinition.setIndexType(indexType);
+	private DatastaxColumnDefinition convertColumnDefinition(Row columnDefinitionRow) {
+		DatastaxColumnDefinition newColumnDefinition = new DatastaxColumnDefinition();
 		newColumnDefinition.setName(charset.encode(columnDefinitionRow.getString("column_name")));
-		newColumnDefinition.setValidationClass(columnDefinitionRow.getString("validator"));
+		newColumnDefinition.setIndexName(columnDefinitionRow.getString("index_name"));
+		ColumnKeyType columnKeyType = ColumnKeyType.fromName(columnDefinitionRow.getString("type"));
+		newColumnDefinition.setKeyType(columnKeyType);
+		String validator = columnDefinitionRow.getString("validator");
+		// handles the column types used in reversed indexes
+		if (validator.startsWith(ReversedType.class.getName())) {
+			validator = validator.substring(ReversedType.class.getName().length() + 1, validator.length() - 1);
+		}
+		newColumnDefinition.setValidationClass(validator);
 		return newColumnDefinition;
 	}
 

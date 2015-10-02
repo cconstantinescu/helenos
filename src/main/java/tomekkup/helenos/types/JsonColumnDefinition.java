@@ -2,6 +2,7 @@ package tomekkup.helenos.types;
 
 import java.nio.ByteBuffer;
 import me.prettyprint.hector.api.ddl.ColumnIndexType;
+import tomekkup.helenos.types.Column.ColumnKeyType;
 
 /**
  * ********************************************************
@@ -19,6 +20,7 @@ public class JsonColumnDefinition {
     private String name;
     private String validationClass;
     private ColumnIndexType indexType;
+    private ColumnKeyType keyType;
     private String indexName;
 
     public String getName() {
@@ -52,4 +54,12 @@ public class JsonColumnDefinition {
     public void setIndexName(String indexName) {
         this.indexName = indexName;
     }
+
+	public ColumnKeyType getKeyType() {
+		return keyType;
+	}
+
+	public void setKeyType(ColumnKeyType keyType) {
+		this.keyType = keyType;
+	}
 }

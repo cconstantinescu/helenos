@@ -43,6 +43,7 @@ qx.Class.define("helenos.ui.treevirtual.ResultsTree",
         setData : function(data) {
             
             populate = function(dataModel,data, parentBranch){
+            	if( data == null) return;
              	var i;
                  for(i = 0; i < data.length; i++) {
                      var row = data[i];

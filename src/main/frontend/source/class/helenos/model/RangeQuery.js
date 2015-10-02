@@ -20,6 +20,8 @@ qx.Class.define('helenos.model.RangeQuery', {
         
         keyTo : { },
         
+        selectedKeyColumn : { },
+        
         rowCount : {
             check : 'Integer',
             init : 10

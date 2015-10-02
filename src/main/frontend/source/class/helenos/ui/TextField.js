@@ -40,6 +40,11 @@ qx.Class.define("helenos.ui.TextField",
                 maxLength : 36,
                 width : 260,
                 filter : /[a-fA-F0-9\-]/
+            },
+            'org.apache.cassandra.db.marshal.Int32Type' : {
+            	placeholder : 'int',
+                width : 120,
+                filter : /[0-9]/
             }
         }
     },

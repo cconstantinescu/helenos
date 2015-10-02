@@ -42,40 +42,42 @@ import tomekkup.helenos.types.qx.query.Query;
  */
 public abstract class AbstractProvider {
 
-    @Autowired
-    protected Mapper mapper;
-    
-    @Autowired
-    protected ObjectMapper objectMapper;
-    
-    protected ConsistencyLevelPolicy consistencyLevelPolicy;
-    
-    protected Cluster cluster;
+	@Autowired
+	protected Mapper mapper;
+
+	@Autowired
+	protected ObjectMapper objectMapper;
+
+	protected ConsistencyLevelPolicy consistencyLevelPolicy;
+
+	protected Cluster cluster;
 
 	private com.datastax.driver.core.Cluster clusterDatastax;
-    
-    protected <V> Serializer<V> getSerializer(Class<V> clazz) {
-        Serializer<V> serializer = SerializerTypeInferer.getSerializer(clazz);
-        if (serializer.getClass().equals(ObjectSerializer.class)) {
-            throw new IllegalStateException("can not obtain correct serializer for class: " + clazz);
-        }
-        return serializer;
-    }
 
-    protected Keyspace getKeyspace(String keyspaceName, String consistencyLevel) {
-        Assert.notNull(cluster, "connection not ready yet");
-        return HFactory.createKeyspace(keyspaceName, cluster, this.resolveCLP(consistencyLevel));
-    }
-    
-    protected Keyspace getKeyspace(Query query) {
-        Assert.notNull(cluster, "connection not ready yet");
-        
-        return HFactory.createKeyspace(query.getKeyspace(), cluster, this.resolveCLP(query.getConsistencyLevel()));
-    }
-    
-    private ConsistencyLevelPolicy resolveCLP(String consistencyLevelStr) {
-        if ("ONE".equals(consistencyLevelStr)) {
-            return AllConsistencyLevelPolicy.getInstance(HConsistencyLevel.ONE);
+	protected <V> Serializer<V> getSerializer(Class<V> clazz) {
+		if (clazz == null)
+			return SerializerTypeInferer.getSerializer(String.class);
+		Serializer<V> serializer = SerializerTypeInferer.getSerializer(clazz);
+		if (serializer.getClass().equals(ObjectSerializer.class)) {
+			throw new IllegalStateException("can not obtain correct serializer for class: " + clazz);
+		}
+		return serializer;
+	}
+
+	protected Keyspace getKeyspace(String keyspaceName, String consistencyLevel) {
+		Assert.notNull(cluster, "connection not ready yet");
+		return HFactory.createKeyspace(keyspaceName, cluster, this.resolveCLP(consistencyLevel));
+	}
+
+	protected Keyspace getKeyspace(Query query) {
+		Assert.notNull(cluster, "connection not ready yet");
+
+		return HFactory.createKeyspace(query.getKeyspace(), cluster, this.resolveCLP(query.getConsistencyLevel()));
+	}
+
+	private ConsistencyLevelPolicy resolveCLP(String consistencyLevelStr) {
+		if ("ONE".equals(consistencyLevelStr)) {
+			return AllConsistencyLevelPolicy.getInstance(HConsistencyLevel.ONE);
         } else
         if ("TWO".equals(consistencyLevelStr)) {
             return AllConsistencyLevelPolicy.getInstance(HConsistencyLevel.TWO);
@@ -97,36 +99,37 @@ public abstract class AbstractProvider {
         } else
         if ("EACH_QUORUM".equals(consistencyLevelStr)) {
             return AllConsistencyLevelPolicy.getInstance(HConsistencyLevel.EACH_QUORUM);
-        }
-        throw new IllegalStateException("unknown consistency level");
-    }
+		}
+		throw new IllegalStateException("unknown consistency level");
+	}
 
-    @Required
-    public void setMapper(Mapper mapper) {
-        this.mapper = mapper;
-    }
+	@Required
+	public void setMapper(Mapper mapper) {
+		this.mapper = mapper;
+	}
 
-    @Required
+	@Required
     public void setConsistencyLevelPolicy(ConsistencyLevelPolicy consistencyLevelPolicy) {
         this.consistencyLevelPolicy = consistencyLevelPolicy;
     }
-    public final void setNewCluster(Cluster cluster) {
+	public final void setNewCluster(Cluster cluster) {
 		this.cluster = cluster;
 		Set<CassandraHost> hosts = this.cluster.getConnectionManager().getHosts();
-		String[] hostsStr = new String[hosts.size()];
-		int i = 0;
-		for (CassandraHost host : hosts) {
-			hostsStr[i++] = host.getHost();
+		if (hosts.size() > 0) {
+			String[] hostsStr = new String[hosts.size()];
+			int i = 0;
+			for (CassandraHost host : hosts) {
+				hostsStr[i++] = host.getHost();
+			}
+			Map<String, String> credentials = cluster.getCredentials();
+			String password = credentials.get("password");
+			String username = credentials.get("username");
+			Builder builder = com.datastax.driver.core.Cluster.builder().addContactPoints(hostsStr);
+			if (StringUtils.isNotBlank(username)) {
+				builder.withCredentials(username, password);
+			}
+			clusterDatastax = builder.build();
 		}
-		Map<String, String> credentials = cluster.getCredentials();
-		String password = credentials.get("password");
-		String username = credentials.get("username");
-		Builder builder = com.datastax.driver.core.Cluster.builder().addContactPoints(hostsStr);
-		if (StringUtils.isNotBlank(username)) {
-			builder.withCredentials(username, password);
-		}
-		clusterDatastax = builder.build();
-		
 	}
 
 	@Required

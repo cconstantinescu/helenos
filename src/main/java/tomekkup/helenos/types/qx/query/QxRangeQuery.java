@@ -1,6 +1,9 @@
 package tomekkup.helenos.types.qx.query;
 
 import java.util.List;
+
+import org.apache.commons.lang.StringUtils;
+
 import tomekkup.helenos.utils.Converter;
 
 /**
@@ -17,6 +20,7 @@ public class QxRangeQuery<K,N,V> extends AbstractColumnQuery<K,N,V> {
     public static final int DEFAULT_ROW_COUNT = 10;
     private String keyFrom;
     private String keyTo;
+    private String selectedKeyColumn;
     private int rowCount = DEFAULT_ROW_COUNT;
 
     public QxRangeQuery() {
@@ -38,19 +42,33 @@ public class QxRangeQuery<K,N,V> extends AbstractColumnQuery<K,N,V> {
     }
 
     public K getKeyFrom() {
+    	if( StringUtils.isBlank(keyFrom)){
+    		return null;
+    	}
         return Converter.toValue(keyFrom, getKeyClass());
     }
-
+    
     public void setKeyFrom(String keyFrom) {
         this.keyFrom = keyFrom;
     }
 
     public K getKeyTo() {
+    	if( StringUtils.isBlank(keyTo)){
+    		return null;
+    	}
         return Converter.toValue(keyTo, getKeyClass());
     }
 
     public void setKeyTo(String keyTo) {
         this.keyTo = keyTo;
+    }
+
+    public String getSelectedKeyColumn() {
+    	return selectedKeyColumn;
+    }
+    
+    public void setSelectedKeyColumn(String selectedKeyColumn) {
+    	this.selectedKeyColumn = selectedKeyColumn;
     }
 
     public int getRowCount() {
@@ -60,4 +78,5 @@ public class QxRangeQuery<K,N,V> extends AbstractColumnQuery<K,N,V> {
     public void setRowCount(int rowCount) {
         this.rowCount = rowCount;
     }
+    
 }
