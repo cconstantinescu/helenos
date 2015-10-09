@@ -28,6 +28,9 @@ import tomekkup.helenos.types.Column.ColumnKeyType;
 import tomekkup.helenos.types.Slice;
 import tomekkup.helenos.types.qx.query.AbstractColumnQuery;
 import tomekkup.helenos.types.qx.query.AbstractQuery;
+import tomekkup.helenos.types.qx.query.QxCombinedQuery;
+import tomekkup.helenos.types.qx.query.QxCombinedQueryParam;
+import tomekkup.helenos.types.qx.query.QxCombinedQueryParam.ComparisonOperator;
 import tomekkup.helenos.types.qx.query.QxCqlQuery;
 import tomekkup.helenos.types.qx.query.QxPredicateQuery;
 import tomekkup.helenos.types.qx.query.QxRangeQuery;
@@ -62,21 +65,10 @@ public class DatastaxQueryProviderImpl extends AbstractQueryProvider
 		String consistencyLevel = queryParam.getConsistencyLevel();
 		String columnFamily = queryParam.getColumnFamily();
 		List<Column<String, Object>> allColumnTypes = getColumnsByType(keyspace, columnFamily, null, session);
-		Collections.sort(allColumnTypes, new Comparator<Column<String, Object>>() {
-			@Override
-			public int compare(Column<String, Object> o1, Column<String, Object> o2) {
-				if (o1.getType() == o2.getType()) {
-					return 0;
-				}
-				if (o1.getType() == ColumnKeyType.PARTITION_KEY) {
-					return -1;
-				}
-				if (o1.getType() == ColumnKeyType.CLUSTERING_KEY && o2.getType() == ColumnKeyType.REGULAR) {
-					return -1;
-				}
-				return 1;
-			}
-		});
+		// the columns must be ordered by their type in this way:
+		// [PARTITION_KEY] -> [CLUSTERING_KEY] -> [REGULAR]
+		// which will be the order of the tree nodes
+		Collections.sort(allColumnTypes);
 		for (Column<String, Object> column : allColumnTypes) {
 			if (column.getType() == ColumnKeyType.CLUSTERING_KEY || column.getType() == ColumnKeyType.PARTITION_KEY) {
 				allKeys.add(column.getName());
@@ -176,24 +168,23 @@ public class DatastaxQueryProviderImpl extends AbstractQueryProvider
 			sb.append(" FROM ").append(query.getKeyspace()).append(".").append(query.getColumnFamily());
 			List<Object> binds = new ArrayList<Object>();
 			if (query.getKeyFrom() != null) {
-				addClause(binds, sb);
+				addWhereClause(binds, sb);
 				sb.append("\"").append(query.getSelectedKeyColumn()).append("\" >= ? ");
 				binds.add(query.getKeyFrom());
 			}
-			if (query.getKeyTo() != null ) {
-				addClause(binds, sb);
+			if (query.getKeyTo() != null) {
+				addWhereClause(binds, sb);
 				sb.append("\"").append(query.getSelectedKeyColumn()).append("\" <= ? ");
 				binds.add(query.getKeyTo());
 			}
 			sb.append(" LIMIT ").append(query.getRowCount());
-			sb.append(" ALLOW FILTERING ");
 			return executeQuery(query, session, sb.toString(), binds.toArray());
 		} finally {
 			session.close();
 		}
 	}
 
-	private void addClause(List<Object> binds, StringBuilder sb) {
+	private void addWhereClause(List<Object> binds, StringBuilder sb) {
 		if (binds.size() > 0) {
 			sb.append(" AND ");
 		} else {
@@ -259,6 +250,43 @@ public class DatastaxQueryProviderImpl extends AbstractQueryProvider
 				sb.append(", ");
 			}
 			sb.append("\"").append(columnName.trim()).append("\"");
+		}
+	}
+
+	@Override
+	public <K, N, V> List<Slice<K, N, V>> combined(QxCombinedQuery<K, String, V> query) {
+		logQueryObject(query);
+		Session session = getNewCQLSession();
+		try {
+			StringBuilder sb = new StringBuilder();
+
+			sb.append("SELECT * FROM ");
+			sb.append(query.getKeyspace()).append(".").append(query.getColumnFamily());
+			List<Object> binds = new ArrayList<Object>();
+			for (QxCombinedQueryParam<?> param : query.getParamList()) {
+				if (param.getFrom() != null) {
+					addWhereClause(binds, sb);
+					if (param.getComparisonOperator() == ComparisonOperator.BETWEEN) {
+						sb.append("\"").append(param.getName()).append("\" ")
+								.append(ComparisonOperator.GREATER_THAN_OF_EQUALS.getOperator()).append(" ? ");
+						binds.add(param.getFrom());
+						if (param.getTo() != null) {
+							sb.append( " AND ");
+							sb.append("\"").append(param.getName()).append("\" ")
+									.append(ComparisonOperator.LESS_THAN_OR_EQUALS.getOperator()).append(" ? ");
+							binds.add(param.getTo());
+						}
+					} else {
+						sb.append("\"").append(param.getName()).append("\" ")
+								.append(param.getComparisonOperator().getOperator()).append(" ? ");
+						binds.add(param.getFrom());
+					}
+				}
+			}
+			sb.append(" LIMIT ").append(query.getRowCount());
+			return executeQuery(query, session, sb.toString(), binds.toArray());
+		} finally {
+			session.close();
 		}
 	}
 

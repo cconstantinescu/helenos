@@ -9,7 +9,7 @@ Authors:
 qx.Class.define('helenos.util.Constants', {
         
     statics : {
-        
+    	
         comparatorTypes : [
         {
             'label' : "Ascii", 
@@ -110,7 +110,9 @@ qx.Class.define('helenos.util.Constants', {
         }
         ],
         
-        consistencyLevels : ['ALL','ONE','TWO','THREE','QUORUM','LOCAL_QUORUM','EACH_QUORUM']
+        consistencyLevels : ['ONE','TWO','THREE','ALL','QUORUM','LOCAL_QUORUM','EACH_QUORUM'],
+        
+        comparisonTypes : ['equal to','less than','less than or equal to','greater than','greater than or equal to','between']
         //,consistencyLevelsIcons : ['ca','c1','c2','c3','cq','clq','ceq']
     }
 });

@@ -2,6 +2,7 @@ package tomekkup.helenos.service.impl;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -138,6 +139,7 @@ public class DatastaxSchemaProviderImpl extends AbstractProvider implements Sche
 			for (Row columnDefinitionRow : resultColumnsDefinition) {
 				columnFamilyDefinition.addColumnDefinition(convertColumnDefinition(columnDefinitionRow));
 			}
+			Collections.sort(columnFamilyDefinition.getColumnDefinitions());
 			columnFamilyDefinition.setColumnType(ColumnType.getFromValue(columnFamilityRow.getString("type")));
 			columnFamilyDefinition.setComment(columnFamilityRow.getString("comment"));
 			columnFamilyDefinition.setCompactionStrategy(columnFamilityRow.getString("compaction_strategy_class"));
@@ -187,6 +189,7 @@ public class DatastaxSchemaProviderImpl extends AbstractProvider implements Sche
 		newColumnDefinition.setIndexName(columnDefinitionRow.getString("index_name"));
 		ColumnKeyType columnKeyType = ColumnKeyType.fromName(columnDefinitionRow.getString("type"));
 		newColumnDefinition.setKeyType(columnKeyType);
+		newColumnDefinition.setComponentIndex(columnDefinitionRow.getInt("component_index"));
 		String validator = columnDefinitionRow.getString("validator");
 		// handles the column types used in reversed indexes
 		if (validator.startsWith(ReversedType.class.getName())) {

@@ -138,6 +138,7 @@ public abstract class AbstractProvider {
 	}
 
 	public Session getNewCQLSession() {
+		Assert.notNull(clusterDatastax, "connection not ready yet");
 		Session session = clusterDatastax.connect();
 		return session;
 	}
@@ -157,6 +158,7 @@ public abstract class AbstractProvider {
 			if (requiredType == null || type == requiredType) {
 				column.setType(type);
 				column.setName(row.getString("column_name"));
+				column.setComponentIndex(row.getInt("component_index"));
 				columns.add(column);
 			}
 		}

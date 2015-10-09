@@ -18,6 +18,7 @@ import tomekkup.helenos.service.ClusterConfigAware;
 import tomekkup.helenos.service.impl.AbstractQueryProvider;
 import tomekkup.helenos.service.query.StandardQueryProvider;
 import tomekkup.helenos.types.Slice;
+import tomekkup.helenos.types.qx.query.QxCombinedQuery;
 import tomekkup.helenos.types.qx.query.QxCqlQuery;
 import tomekkup.helenos.types.qx.query.QxPredicateQuery;
 import tomekkup.helenos.types.qx.query.QxRangeQuery;
@@ -107,4 +108,9 @@ public class StandardQueryProviderImpl extends AbstractQueryProvider implements 
         
         return ret;
     }
+
+	@Override
+	public <K, N, V> List<Slice<K, N, V>> combined(QxCombinedQuery<K, String, V> query) {
+		return new ArrayList<Slice<K,N,V>>();
+	}
 }

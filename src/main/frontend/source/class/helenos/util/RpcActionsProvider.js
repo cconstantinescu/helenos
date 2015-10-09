@@ -157,6 +157,12 @@ qx.Class.define('helenos.util.RpcActionsProvider', {
                 rpc = new helenos.util.Rpc(this._SUPERQUERY);
             }
             return rpc.callSync('keyRange', query );
+        },
+        
+        queryCombined : function(cfDef, query) {
+            var rpc = null;
+            rpc = new helenos.util.Rpc(this._STANDARDQUERY);
+            return rpc.callSync('combined', query );
         }
     }
 });

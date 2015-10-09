@@ -1,63 +1,72 @@
 package tomekkup.helenos.types;
 
 /**
- * ********************************************************
- * Copyright: 2012 Tomek Kuprowski
+ * ******************************************************** Copyright: 2012
+ * Tomek Kuprowski
  *
  * License: GPLv2: http://www.gnu.org/licences/gpl.html
  *
- * @author Tomek Kuprowski (tomekkuprowski at gmail dot com)
- * *******************************************************
+ * @author Tomek Kuprowski (tomekkuprowski at gmail dot com) *
+ * ******************************************************
  */
-public class Column<N,V> {
+public class Column<N, V> implements Comparable<Column<N, V>> {
 
-    private N name;
-    private V value;
-    private ColumnKeyType type;
-    private long clock;
-    private int ttl;
+	private N name;
+	private V value;
+	private ColumnKeyType type;
+	private int componentIndex;
+	private long clock;
+	private int ttl;
 
-    public Column() {
-    }
+	public Column() {
+	}
 
-    public N getName() {
-        return name;
-    }
+	public N getName() {
+		return name;
+	}
 
-    public void setName(N name) {
-        this.name = name;
-    }
+	public void setName(N name) {
+		this.name = name;
+	}
 
-    public V getValue() {
-        return value;
-    }
+	public V getValue() {
+		return value;
+	}
 
-    public void setValue(V value) {
-        this.value = value;
-    }
+	public void setValue(V value) {
+		this.value = value;
+	}
 
-    public long getClock() {
-        return clock;
-    }
+	public long getClock() {
+		return clock;
+	}
 
-    public void setClock(long clock) {
-        this.clock = clock;
-    }
+	public void setClock(long clock) {
+		this.clock = clock;
+	}
 
-    public int getTtl() {
-        return ttl;
-    }
+	public int getTtl() {
+		return ttl;
+	}
 
-    public void setTtl(int ttl) {
-        this.ttl = ttl;
-    }
-    
-    public ColumnKeyType getType() {
+	public void setTtl(int ttl) {
+		this.ttl = ttl;
+	}
+
+	public ColumnKeyType getType() {
 		return type;
 	}
 
 	public void setType(ColumnKeyType type) {
 		this.type = type;
+	}
+
+	public int getComponentIndex() {
+		return componentIndex;
+	}
+
+	public void setComponentIndex(int componentIndex) {
+		this.componentIndex = componentIndex;
 	}
 
 	public enum ColumnKeyType {
@@ -76,5 +85,19 @@ public class Column<N,V> {
 			}
 			return null;
 		}
+	}
+
+	@Override
+	public int compareTo(Column<N, V> o) {
+		if (this.getType() == o.getType()) {
+			return Integer.compare(this.getComponentIndex(), o.getComponentIndex());
+		}
+		if (this.getType() == ColumnKeyType.PARTITION_KEY) {
+			return -1;
+		}
+		if (this.getType() == ColumnKeyType.CLUSTERING_KEY && o.getType() == ColumnKeyType.REGULAR) {
+			return -1;
+		}
+		return 1;
 	}
 }
